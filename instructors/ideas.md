@@ -89,7 +89,13 @@
 
 ### Lab 5 - TODO - Skills
 
-- fix adjacent links
+- skill /fix-adjacent-links
+- skill /ideate-lab
+  ideate a new lab
+  - for a given topic
+  - with specified learning outcomes following bloom's taxonomy
+  - with three required tasks and one optional task
+  - in instructors/lab-plan.md
 - skill /issue
 - skill: review lab
   - run /review-file in parallel on tasks
