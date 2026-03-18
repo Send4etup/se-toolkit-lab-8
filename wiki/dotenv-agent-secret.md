@@ -23,9 +23,13 @@ Default values: [`.env.agent.example`](../.env.agent.example)
 
 The [API key](./web-api.md#api-key) for your [LLM provider API](./llm.md#llm-provider-api).
 
-- For the [`Qwen Code` API](./qwen-code-api.md#what-is-qwen-code-api) on your VM: [`QWEN_CODE_API_KEY`](./dotenv-docker-secret.md#qwen_code_api_key)
+- For the [`Qwen Code` API](./qwen-code-api.md#what-is-qwen-code-api):
+  
+  the value of [`QWEN_CODE_API_KEY`](./qwen-code-api-dotenv-secret.md#qwen_code_api_key) from [`qwen-code-api/.env.secret`](./qwen-code-api-dotenv-secret.md#about-qwen-code-apienvsecret).
 
-- For the [`OpenRouter` API](./llm.md#openrouter-api): your `OpenRouter` API key
+- For the [`OpenRouter` API](./llm.md#openrouter-api):
+  
+  your `OpenRouter` API key.
 
 Default: `your-llm-api-key-here`
 
