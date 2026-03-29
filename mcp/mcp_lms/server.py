@@ -225,3 +225,124 @@ async def main(base_url: str | None = None) -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+# ---------------------------------------------------------------------------
+# Observability tools
+# ---------------------------------------------------------------------------
+
+import urllib.parse
+from datetime import datetime, timezone
+
+
+VICTORIALOGS_URL = os.environ.get("VICTORIALOGS_URL", "http://victorialogs:9428")
+VICTORIATRACES_URL = os.environ.get("VICTORIATRACES_URL", "http://victoriatraces:10428")
+
+
+class _LogsSearch(BaseModel):
+    query: str = Field(description="LogsQL query, e.g. '_stream:{service=\"backend\"} AND level:error'")
+    limit: int = Field(default=50, ge=1, le=500, description="Max log entries to return.")
+
+
+class _LogsErrorCount(BaseModel):
+    service: str = Field(default="backend", description="Service name to filter by.")
+    minutes: int = Field(default=60, ge=1, description="Time window in minutes.")
+
+
+class _TracesList(BaseModel):
+    service: str = Field(default="backend", description="Service name.")
+    limit: int = Field(default=10, ge=1, le=100, description="Max traces to return.")
+
+
+class _TracesGet(BaseModel):
+    trace_id: str = Field(description="Trace ID to fetch.")
+
+
+import httpx
+
+
+async def _logs_search(args: _LogsSearch) -> list[TextContent]:
+    url = f"{VICTORIALOGS_URL}/select/logsql/query"
+    params = {"query": args.query, "limit": args.limit}
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, params=params)
+        r.raise_for_status()
+    lines = [line for line in r.text.strip().split("\n") if line]
+    entries = []
+    for line in lines:
+        try:
+            entries.append(json.loads(line))
+        except Exception:
+            entries.append(line)
+    return [TextContent(type="text", text=json.dumps(entries, ensure_ascii=False))]
+
+
+async def _logs_error_count(args: _LogsErrorCount) -> list[TextContent]:
+    query = f'_stream:{{service="{args.service}"}} AND level:error'
+    url = f"{VICTORIALOGS_URL}/select/logsql/query"
+    params = {"query": query, "limit": 500}
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, params=params)
+        r.raise_for_status()
+    lines = [line for line in r.text.strip().split("\n") if line]
+    now = datetime.now(timezone.utc).timestamp()
+    cutoff = now - args.minutes * 60
+    count = 0
+    for line in lines:
+        try:
+            entry = json.loads(line)
+            ts_str = entry.get("_time", "")
+            if ts_str:
+                from datetime import datetime as dt
+                ts = dt.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+                if ts >= cutoff:
+                    count += 1
+            else:
+                count += 1
+        except Exception:
+            count += 1
+    result = {"service": args.service, "minutes": args.minutes, "error_count": count}
+    return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+
+async def _traces_list(args: _TracesList) -> list[TextContent]:
+    url = f"{VICTORIATRACES_URL}/jaeger/api/traces"
+    params = {"service": args.service, "limit": args.limit}
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, params=params)
+        r.raise_for_status()
+    return [TextContent(type="text", text=r.text)]
+
+
+async def _traces_get(args: _TracesGet) -> list[TextContent]:
+    url = f"{VICTORIATRACES_URL}/jaeger/api/traces/{args.trace_id}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url)
+        r.raise_for_status()
+    return [TextContent(type="text", text=r.text)]
+
+
+_register(
+    "logs_search",
+    "Search structured logs in VictoriaLogs using LogsQL. Example query: '_stream:{service=\"backend\"} AND level:error'",
+    _LogsSearch,
+    _logs_search,
+)
+_register(
+    "logs_error_count",
+    "Count error-level log entries for a service over a time window (in minutes).",
+    _LogsErrorCount,
+    _logs_error_count,
+)
+_register(
+    "traces_list",
+    "List recent traces for a service from VictoriaTraces.",
+    _TracesList,
+    _traces_list,
+)
+_register(
+    "traces_get",
+    "Fetch a specific trace by ID from VictoriaTraces.",
+    _TracesGet,
+    _traces_get,
+)
