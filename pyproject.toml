@@ -1,5 +1,12 @@
 [tool.uv.workspace]
-members = ["backend", "mcp", "qwen-code-api"]
+members = [
+    "backend",
+    "mcp",
+    "qwen-code-api",
+    "nanobot",
+    "nanobot-websocket-channel/nanobot-webchat",
+    "nanobot-websocket-channel/nanobot-channel-protocol",
+]
 
 [tool.uv.sources]
 lms-mcp = { workspace = true }
@@ -135,3 +142,4 @@ include = ["backend", "mcp", "qwen-code-api"]
 # TODO: remove after upgrading to ty>=0.0.26 (fixes ParamSpec, see https://github.com/astral-sh/ty/issues/1635)
 [tool.ty.rules]
 invalid-argument-type = "warn"
+
